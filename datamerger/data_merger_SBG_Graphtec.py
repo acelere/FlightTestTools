@@ -7,6 +7,7 @@ style.use('ggplot')
 
 import tkinter as tk
 import tkinter.simpledialog as tksd
+import tkinter.filedialog
 
 
 def center_window(width=300, height=200):
@@ -82,19 +83,23 @@ print('Graphtec hour manipulation')
 
 print()
 wrong_dt = pd.to_datetime(graphtec['Date&Time'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
-print('G time before anthing',wrong_dt.head(1))
-new_time = wrong_dt + (pd.to_timedelta(delta_h, unit='h') + pd.to_timedelta(delta_m, unit='m') + pd.to_timedelta(delta_s, unit='s')+
-                                                                                                                 pd.to_timedelta(delta_ms, unit='ms'))
+print('Graphtec start time before anything',wrong_dt.head(1))
+print('Graphtec end time', wrong_dt.tail(1))
+new_time = wrong_dt + pd.to_timedelta(delta_ms, unit='ms')+ pd.to_timedelta(delta_s, unit='s')+ pd.to_timedelta(delta_m, unit='m')+ pd.to_timedelta(delta_h, unit='h')
+#new_time = wrong_dt + (pd.to_timedelta(delta_h, unit='h') + pd.to_timedelta(delta_m, unit='m') + pd.to_timedelta(delta_s, unit='s')+
+#                                                                                                                 pd.to_timedelta(delta_ms, unit='ms'))
 millis = graphtec['ms']
-print('G time after add deltas',new_time.head(1))
+print('Graphtec time after adding deltas',new_time.head(1))
 new_time += pd.to_timedelta(millis, unit='ms', errors='coerce')
 print('G time after millis',new_time.head(1))
 
 graphtec['time'] = new_time
 
-print('S raw',sbg['GPS Date'][0], sbg['    GPS Time'][0])
+print('SBG raw time',sbg['GPS Date'][0], sbg['    GPS Time'][0])
+
 sbg['time'] = pd.to_datetime(sbg['GPS Date']+' '+sbg['    GPS Time'], format='%Y-%m-%d %H:%M:%S.%f', errors='coerce')
-print('S time after format',sbg['time'][0])
+print('SBG time after format',sbg['time'][0])
+print('SBG end time after format',sbg['time'].tail(1))
 
 #join values
 result = sbg.append(graphtec.iloc[0:,:]).sort_values('time')
@@ -113,7 +118,10 @@ result = result.drop('    UTC Time', 1)
 result = result.drop('UTC Date', 1)
 result = result.drop('ms', 1)
 result = result.drop('Time Stamp', 1)
+#first, pad forward with last value
 result.fillna(method='pad', inplace=True)
+#second, fill backwards so that veusz can cope...
+result.fillna(0, inplace=True)
 
 #calculate total 2D velocity
 result['tot_veloc'] = (result['North Velocity']**2+result['East Velocity']**2)**0.5*1.94384
