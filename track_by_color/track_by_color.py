@@ -80,7 +80,8 @@ def draw_bounds(image, upper_bound, lower_bound, cal_status, rec_status):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)    
 
 def main():
-    camera = cv2.VideoCapture(0)
+    camera = cv2.VideoCapture(1)
+    #use 0 for internal webcam and 1 for external usb cam
     
     frame_w = camera.get(cv2.CAP_PROP_FRAME_WIDTH)
     frame_h = camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -124,7 +125,10 @@ def main():
 
             v1_min, v2_min, v3_min, v1_max, v2_max, v3_max = get_trackbar_values(range_filter)
 
+            #smooth out the imgage (basically filter out noise)
+            frame_to_thresh = cv2.GaussianBlur(frame_to_thresh, (7,7), 0)
             thresh = cv2.inRange(frame_to_thresh, (v1_min, v2_min, v3_min), (v1_max, v2_max, v3_max))
+            
             kernel = np.ones((5,5), np.uint8)
             mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) #filter out white noise
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel) #also to remove noise
