@@ -97,44 +97,44 @@ def main():
 
     df = pd.DataFrame({'Time':[time.asctime(time.localtime())], 'X_percent':[0], 'Y_percent':[0]})
 
-    while True:
-        _, image = camera.read()
-        if range_filter == 'RGB':
-            frame_to_thresh = image.copy()
-        else:
-            frame_to_thresh = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    try:
+        while True:
+            _, image = camera.read()
+            if range_filter == 'RGB':
+                frame_to_thresh = image.copy()
+            else:
+                frame_to_thresh = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-        key = cv2.waitKey(5) & 0xFF
+            key = cv2.waitKey(5) & 0xFF
 
-        if (key == ord('q') or key == ord('Q') or key == 27): #exit
-            break
-        elif (key == ord('c') or key == ord('C')): #calibrate
-            calibrating = not calibrating
-        elif (key == ord('r') or key == ord('R')): #rest
-            cal_status = False
-            calibrating = False
-            recording = False
-            upper_limit_x = int(frame_w) #upper relative to screen - upper left corner
-            upper_limit_y = int(frame_h)
-            lower_limit_x = 0
-            lower_limit_y = 0
-        elif (key == ord('s') or key == ord('S')): #start/stop rec
-            recording = not recording
+            if (key == ord('q') or key == ord('Q') or key == 27): #exit
+                break
+            elif (key == ord('c') or key == ord('C')): #calibrate
+                calibrating = not calibrating
+            elif (key == ord('r') or key == ord('R')): #rest
+                cal_status = False
+                calibrating = False
+                recording = False
+                upper_limit_x = int(frame_w) #upper relative to screen - upper left corner
+                upper_limit_y = int(frame_h)
+                lower_limit_x = 0
+                lower_limit_y = 0
+            elif (key == ord('s') or key == ord('S')): #start/stop rec
+                recording = not recording
 
-        v1_min, v2_min, v3_min, v1_max, v2_max, v3_max = get_trackbar_values(range_filter)
+            v1_min, v2_min, v3_min, v1_max, v2_max, v3_max = get_trackbar_values(range_filter)
 
-        thresh = cv2.inRange(frame_to_thresh, (v1_min, v2_min, v3_min), (v1_max, v2_max, v3_max))
-        kernel = np.ones((5,5), np.uint8)
-        mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) #filter out white noise
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel) #also to remove noise
-        # find contours in the mask and initialize the current
-        # (x, y) center of the ball
-        # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
+            thresh = cv2.inRange(frame_to_thresh, (v1_min, v2_min, v3_min), (v1_max, v2_max, v3_max))
+            kernel = np.ones((5,5), np.uint8)
+            mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) #filter out white noise
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel) #also to remove noise
+            # find contours in the mask and initialize the current
+            # (x, y) center of the ball
+            # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
 
-        center, radius = detect_object(mask)
-        time_stamp = time.localtime()
-        if calibrating:
-            try:
+            center, radius = detect_object(mask)
+            time_stamp = time.localtime()
+            if calibrating:
                 if type(center) != 'NoneType': #had to add this becuause sometimes the object comes empty
                     if center[0] < upper_limit_x:
                         print(center[0])
@@ -146,26 +146,28 @@ def main():
                     if center[1] > lower_limit_y:
                         lower_limit_y = int(center[1])
                     cal_status = True
-            except Exception as e:
-                print(str(e))
+                    #IMPLEMENT CENTER POINT
+
+                    
+            if (recording and cal_status):
+                x_perc, y_perc = calculate_percentages(center, (upper_limit_x, upper_limit_y),
+                                (lower_limit_x, lower_limit_y))
+                print("x= ",x_perc, " y= ",y_perc)
+                df = df.append({'Time':time.asctime(time_stamp), 'X_percent':x_perc, 'Y_percent':y_perc}, ignore_index=True)
+                print(df.tail())
+
+
                 
-        if (recording and cal_status):
-            x_perc, y_perc = calculate_percentages(center, (upper_limit_x, upper_limit_y),
-                            (lower_limit_x, lower_limit_y))
-            print("x= ",x_perc, " y= ",y_perc)
-            df = df.append({'Time':time.asctime(time_stamp), 'X_percent':x_perc, 'Y_percent':y_perc}, ignore_index=True)
-            print(df.tail())
-
-
+            draw_circle(image, center, radius, (upper_limit_x, upper_limit_y),
+                                (lower_limit_x, lower_limit_y), (cal_status and not calibrating))
+            draw_bounds(image, (upper_limit_x, upper_limit_y),
+                                (lower_limit_x, lower_limit_y), (cal_status and not calibrating), recording)
             
-        draw_circle(image, center, radius, (upper_limit_x, upper_limit_y),
-                            (lower_limit_x, lower_limit_y), (cal_status and not calibrating))
-        draw_bounds(image, (upper_limit_x, upper_limit_y),
-                            (lower_limit_x, lower_limit_y), (cal_status and not calibrating), recording)
-        
 
-        cv2.imshow("Image", image)
-        cv2.imshow("Mask", mask)
+            cv2.imshow("Image", image)
+            cv2.imshow("Mask", mask)
+    except Exception as e:
+        print(str(e))
     camera.release()
     cv2.destroyAllWindows()
     print(df.head())
