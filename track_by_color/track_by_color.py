@@ -97,6 +97,8 @@ def main():
     recording = False
 
     df = pd.DataFrame({'Time':[time.asctime(time.localtime())], 'X_percent':[0], 'Y_percent':[0]})
+    df.to_csv('camera_data.csv')
+    frame_counter = 0
     
 
     try:
@@ -163,6 +165,14 @@ def main():
                                     (lower_limit_x, lower_limit_y))
                     #print("x= ",x_perc, " y= ",y_perc)
                     df = df.append({'Time':time.asctime(time_stamp), 'X_percent':x_perc, 'Y_percent':y_perc}, ignore_index=True)
+                    frame_counter = frame_counter + 1
+                    if frame_counter % 1000 == 0:
+                        print(' SHOULD RECORD NOW ')
+                        df.to_csv('camera_data.csv', mode='a', header=False)
+                        del df
+                        df = pd.DataFrame({'Time':[time.asctime(time.localtime())], 'X_percent':[0], 'Y_percent':[0]})
+                        
+                        
                     
                 draw_circle(image, center, radius, (upper_limit_x, upper_limit_y),
                                     (lower_limit_x, lower_limit_y), (cal_status and not calibrating))
@@ -179,6 +189,7 @@ def main():
     camera.release()
     cv2.destroyAllWindows()
     print(df.head())
+    df.to_csv('camera_data.csv', mode='a', header=False)
     df.to_csv('newcsv.csv')
 
 if __name__ == '__main__':
