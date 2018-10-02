@@ -97,6 +97,7 @@ def main():
     recording = False
 
     df = pd.DataFrame({'Time':[time.asctime(time.localtime())], 'X_percent':[0], 'Y_percent':[0]})
+    
 
     try:
         while True:
@@ -137,41 +138,44 @@ def main():
             # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
 
             center, radius = detect_object(mask)
-            time_stamp = time.localtime()
-            if calibrating:
-                if type(center) != 'NoneType': #had to add this becuause sometimes the object comes empty
-                    if center[0] < upper_limit_x:
-                        print(center[0])
-                        upper_limit_x = int(center[0])
-                    if center[1] < upper_limit_y:
-                        upper_limit_y = int(center[1])
-                    if center[0] > lower_limit_x:
-                        lower_limit_x = int(center[0])
-                    if center[1] > lower_limit_y:
-                        lower_limit_y = int(center[1])
-                    cal_status = True
-                    #IMPLEMENT CENTER POINT
-
+            #print(type(center))
+            #needs to check if object is valid before doing anything:
+            #https://stackoverflow.com/questions/23086383/how-to-test-nonetype-in-python
+            if center is not None:
+                #print(type(center))
+                #print(' - ', type(center[0]))
+                time_stamp = time.localtime()
+                if calibrating:
+                    if type(center) != 'NoneType': #had to add this becuause sometimes the object comes empty
+                        if center[0] < upper_limit_x:
+                            upper_limit_x = int(center[0])
+                        if center[1] < upper_limit_y:
+                            upper_limit_y = int(center[1])
+                        if center[0] > lower_limit_x:
+                            lower_limit_x = int(center[0])
+                        if center[1] > lower_limit_y:
+                            lower_limit_y = int(center[1])
+                        cal_status = True
+                        #IMPLEMENT CENTER POINT
+                        
+                if (recording and cal_status):
+                    x_perc, y_perc = calculate_percentages(center, (upper_limit_x, upper_limit_y),
+                                    (lower_limit_x, lower_limit_y))
+                    #print("x= ",x_perc, " y= ",y_perc)
+                    df = df.append({'Time':time.asctime(time_stamp), 'X_percent':x_perc, 'Y_percent':y_perc}, ignore_index=True)
                     
-            if (recording and cal_status):
-                x_perc, y_perc = calculate_percentages(center, (upper_limit_x, upper_limit_y),
-                                (lower_limit_x, lower_limit_y))
-                print("x= ",x_perc, " y= ",y_perc)
-                df = df.append({'Time':time.asctime(time_stamp), 'X_percent':x_perc, 'Y_percent':y_perc}, ignore_index=True)
-                print(df.tail())
-
-
+                draw_circle(image, center, radius, (upper_limit_x, upper_limit_y),
+                                    (lower_limit_x, lower_limit_y), (cal_status and not calibrating))
+                draw_bounds(image, (upper_limit_x, upper_limit_y),
+                                    (lower_limit_x, lower_limit_y), (cal_status and not calibrating), recording)
                 
-            draw_circle(image, center, radius, (upper_limit_x, upper_limit_y),
-                                (lower_limit_x, lower_limit_y), (cal_status and not calibrating))
-            draw_bounds(image, (upper_limit_x, upper_limit_y),
-                                (lower_limit_x, lower_limit_y), (cal_status and not calibrating), recording)
-            
 
-            cv2.imshow("Image", image)
-            cv2.imshow("Mask", mask)
+                cv2.imshow("Image", image)
+                cv2.imshow("Mask", mask)
+            #print('returned empty object')
     except Exception as e:
         print(str(e))
+        pass
     camera.release()
     cv2.destroyAllWindows()
     print(df.head())
