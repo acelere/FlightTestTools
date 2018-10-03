@@ -1,6 +1,6 @@
 # base code derived from: https://pythonprogramming.net/tkinter-depth-tutorial-making-actual-program/
 # The code for changing pages was derived from: http://stackoverflow.com/questions/7546050/switch-between-two-frames-in-tkinter
-# License: http://creativecommons.org/licenses/by-sa/3.0/	
+# License: http://creativecommons.org/licenses/by-sa/3.0/
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -78,12 +78,23 @@ class StartPage(tk.Frame):
         button3.pack()
 
 
-        button5 = ttk.Button(self, text="Accept",
+        button4 = ttk.Button(self, text="Accept",
                             command=self.saveValues)
+        button4.pack()
+
+
+        button5 = ttk.Button(self, text="Manual Time Delta",
+                            command=self.manualDelta)
         button5.pack()
 
-        self.saveOK = False
+        self.saveOKPeaks = False
+        self.saveOKManual = False
         self.figInit = False
+
+        self.delta_h = 0
+        self.delta_m = 0
+        self.delta_s = 0
+        self.delta_ms = 0
         
 
 
@@ -346,22 +357,43 @@ class StartPage(tk.Frame):
                 print('Delta is: {}'.format(self.deltat))
                 print('finished peaks routine')
                 
-                self.saveOK = True
+                self.saveOKPeaks = True
                 self.updatePlot(self.gr_data, self.vn_data)
+
+    def manualDelta(self):
+        if not self.graphtecExists:
+            self.popupmsg('Select Graphtec file first')
+        elif not self.INSExists:
+            self.popupmsg('Select INS file first')
+        else:
+            self.delta_h = tksd.askinteger("askinteger", "Enter DELTA_H", minvalue = -23, maxvalue = 23)
+            self.delta_m = tksd.askinteger("askinteger", "Enter DELTA_M", minvalue = -59, maxvalue = 59)
+            self.delta_s = tksd.askinteger("askinteger", "Enter DELTA_S", minvalue = -59, maxvalue = 59)
+            self.delta_ms = tksd.askinteger("askinteger", "Enter DELTA_MilliS", minvalue = -1000, maxvalue = 1000)
+
+
+            print('Deltas: {} hours, {} minutes, {} seconds and {} milliseconds'. format(self.delta_h, self.delta_m, self.delta_s, self.delta_ms))
+            self.saveOKManual = True
 
 
     def saveValues(self):
 
-        if self.saveOK == False:
-            self.popupmsg('Detect peaks first')
-        else:
-            
+        print('Peaks', self.saveOKPeaks, ' Manual ', self.saveOKManual, ' or ', (self.saveOKPeaks == True or self.saveOKManual == True))
+        if self.saveOKPeaks == True:
+            print('Saving data using detected peaks for synchronism')
             new_time = self.wrong_dt - (self.graphtec['wrong_dt'].iloc[self.gr_peaks[0]]-self.vn_clean['time'].iloc[self.vn_peaks[0]])
-            self.graphtec['time'] = new_time
+        elif self.saveOKManual == True:
+            new_time = self.wrong_dt + (pd.to_timedelta(self.delta_h, unit='h') + pd.to_timedelta(self.delta_m, unit='m') +
+                                        pd.to_timedelta(self.delta_s, unit='s') + pd.to_timedelta(self.delta_ms, unit='ms'))
+            print('Saving data using manual deltas for synchronism')
+        else:
+            self.popupmsg('Detect peak or enter deltas manually first')
 
-            
+        if ((self.saveOKPeaks == True) or (self.saveOKManual == True)):
+            self.graphtec['time'] = new_time
+        
             #join values
-            result = self.vn_clean.append(self.graphtec.iloc[0:,:]).sort_values(by=['time'])
+            result = self.vn_clean.append(self.graphtec.iloc[0:,:], sort=True).sort_values(by=['time'])
 
             #droping stuff we dont need
             ##result = result.drop('Number', 1)
@@ -389,7 +421,9 @@ class StartPage(tk.Frame):
             filename = tk.filedialog.asksaveasfilename(title='Select/Type OUTPUT file', defaultextension='.csv')
 
             result.to_csv(filename)
-            print('Done') 
+            print('Done')
+        
+
 
     def popupmsg(self, msg):
         popup = tk.Tk()
