@@ -326,15 +326,15 @@ class StartPage(tk.Frame):
             print('VectorNav peak detected at: {}'.format(self.vn_clean['time'].iloc[peaks2[0]]))
             print()
 
-            dt_window = 2 # plus or minus seconds around found peak
+            dt_window = 5 # plot plus or minus seconds around found peak
             
             delta_time = self.graphtec['wrong_dt'].iloc[peaks[0]]-self.vn_clean['time'].iloc[peaks2[0]]
             print()
-            gr_plt_data = self.graphtec[(self.graphtec['wrong_dt'] > (self.graphtec['wrong_dt'].iloc[peaks[0]]-pd.Timedelta(seconds=2))) &
-                  (self.graphtec['wrong_dt'] < (self.graphtec['wrong_dt'].iloc[peaks[0]]+pd.Timedelta(seconds=2)))]
+            gr_plt_data = self.graphtec[(self.graphtec['wrong_dt'] > (self.graphtec['wrong_dt'].iloc[peaks[0]]-pd.Timedelta(seconds=dt_window))) &
+                  (self.graphtec['wrong_dt'] < (self.graphtec['wrong_dt'].iloc[peaks[0]]+pd.Timedelta(seconds=dt_window)))]
 
-            vn_plt_data = self.vn_clean[(self.vn_clean['time'] > (self.vn_clean['time'].iloc[peaks2[0]]-pd.Timedelta(seconds=2))) &
-                  (self.vn_clean['time'] < (self.vn_clean['time'].iloc[peaks2[0]]+pd.Timedelta(seconds=2)))]
+            vn_plt_data = self.vn_clean[(self.vn_clean['time'] > (self.vn_clean['time'].iloc[peaks2[0]]-pd.Timedelta(seconds=dt_window))) &
+                  (self.vn_clean['time'] < (self.vn_clean['time'].iloc[peaks2[0]]+pd.Timedelta(seconds=dt_window)))]
 
             return peaks, peaks2, gr_plt_data, vn_plt_data, delta_time
         else:
