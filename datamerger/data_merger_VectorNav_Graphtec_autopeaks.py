@@ -1,9 +1,19 @@
 # base code derived from: https://pythonprogramming.net/tkinter-depth-tutorial-making-actual-program/
 # The code for changing pages was derived from: http://stackoverflow.com/questions/7546050/switch-between-two-frames-in-tkinter
 # License: http://creativecommons.org/licenses/by-sa/3.0/
+'''Merge 2 data streams using common event for syncing
+    Stream 1: Graphtec recorded data
+    Sync signal 1: Event marker (CH8)
+    
+    Stream 2: VectorNav micro inertial
+    Sync signal 2: Vertical acceleration Nz
+'''
+__author__ = 'Andre Celere, https://github.com/acelere/FlightTestTools'
+__version__ = '1.1.12'
+__license__ = 'GPLv3'
 
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import pandas as pd
@@ -16,22 +26,24 @@ from tkinter import ttk
 import tkinter.simpledialog as tksd
 import tkinter.filedialog
 
+#import peak detection function which should be under the (functions) subfolder
 import sys
 sys.path.insert(1, r'./functions')  # add to pythonpath
 from detect_peaks import detect_peaks
 
-LARGE_FONT= ("Verdana", 12)
+LARGE_FONT= ('Verdana', 12)
 
 
 class FTISyncApp(tk.Tk):
+    '''Wrapper class for tk environment'''
 
     def __init__(self, *args, **kwargs):
         
         tk.Tk.__init__(self, *args, **kwargs)
-        tk.Tk.wm_title(self, "Graphtec/INS Data Merge")
+        tk.Tk.wm_title(self, 'Graphtec/INS Data Merge')
         
         container = tk.Frame(self)
-        container.pack(side="top", fill="both", expand = True)
+        container.pack(side='top', fill='both', expand = True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
@@ -41,7 +53,7 @@ class FTISyncApp(tk.Tk):
 
         frame = StartPage(container, self)
         self.frames[StartPage] = frame
-        frame.grid(row=0, column=0, sticky="nsew")
+        frame.grid(row=0, column=0, sticky='nsew')
 
         self.show_frame(StartPage)
         
@@ -60,30 +72,30 @@ class StartPage(tk.Frame):
     
     def __init__(self, parent, controller):
         tk.Frame.__init__(self,parent)
-        label = tk.Label(self, text="Select EACH step below, in order", font=LARGE_FONT)
+        label = tk.Label(self, text='Select EACH step below, in order', font=LARGE_FONT)
         label.pack(pady=10,padx=10)
 
-        button = ttk.Button(self, text="Select Graphtec file",
+        button = ttk.Button(self, text='Select Graphtec file',
                             command=self.getGraphtecFile)
         button.pack()
         self.graphtecExists = False
 
-        button2 = ttk.Button(self, text="Select INS file",
+        button2 = ttk.Button(self, text='Select INS file',
                             command=self.getINSFile)
         button2.pack()
         self.INSExists = False
 
-        button3 = ttk.Button(self, text="Detect Peaks",
+        button3 = ttk.Button(self, text='Detect Peaks',
                             command=self.detectPeaks)
         button3.pack()
 
 
-        button4 = ttk.Button(self, text="Accept",
+        button4 = ttk.Button(self, text='Accept',
                             command=self.saveValues)
         button4.pack()
 
 
-        button5 = ttk.Button(self, text="Manual Time Delta",
+        button5 = ttk.Button(self, text='Manual Time Delta',
                             command=self.manualDelta)
         button5.pack()
 
@@ -101,7 +113,7 @@ class StartPage(tk.Frame):
     def updatePlot(self, gr_plt_data, vn_plt_data):
         '''data in:
             gr_plt_data: pandas dataframe that contains the graphtec FILTERED data for the graph
-            vn_plt_data: same thing for the vectornav
+            vn_plt_data: same thing for the vectornav inertial
         '''
 
         if self.figInit == True:
@@ -123,8 +135,11 @@ class StartPage(tk.Frame):
             self.toolbar.update()
             self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        self.a.plot(gr_plt_data.index.values, gr_plt_data['CH8'].values, 'o-')
-        self.b.plot(vn_plt_data.index.values, vn_plt_data['Acceleration.Z'].values, '.-')
+        self.a.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8'].values, 'o-')
+        self.b.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z'].values, '.-')
+        
+        #self.a.plot(gr_plt_data.index.values, gr_plt_data['CH8'].values, 'o-')
+        #self.b.plot(vn_plt_data.index.values, vn_plt_data['Acceleration.Z'].values, '.-')
         self.canvas.draw()    
 
 
@@ -160,7 +175,11 @@ class StartPage(tk.Frame):
         self.graphtecExists = True
 
     def getINSFile(self):
-
+        '''Read the VectorNav inertial file
+        should be a .txt file exported from VN software
+        with preselected parameters
+        '''
+        
         filename = tk.filedialog.askopenfilename(filetypes=[('TXT','*.txt'), ('CSV','*.csv')], title='Select VECTORNAV file')
 
         print('Reading INS file...')
@@ -173,6 +192,7 @@ class StartPage(tk.Frame):
 
             self.vn_raw.rename({column:splitted[0]}, axis='columns', inplace=True)
 
+        #these are all rows that are not used in subsequent analysis
         rows_to_remove = ['Dcm00', 
         'Dcm01', 
         'Dcm02', 
@@ -286,7 +306,11 @@ class StartPage(tk.Frame):
         self.INSExists = True
 
     def search_peaks(self):
-        '''this function will detect the peaks and return the timedelta
+        '''this function will detect the peaks and return:
+        peaks, peaks2: stream 1 and stream 2 peaks list
+        (referenced to each stream array) and which will be used to shift streams
+        gr_plt_data, vn_plt_data: stream 1 and 2 plot data already sliced
+        delta_time: time shift between 2 streams, calculated with first peaks
         '''
         peaks_not_detected = True
         user_cancelled = False
@@ -295,14 +319,14 @@ class StartPage(tk.Frame):
             print()
             print()
             print('input GRAPHTEC peak threshold')
-            graphtec_mph = tksd.askfloat("Input", "Enter GRAPHTEC peak threshold", minvalue = 0.0001, maxvalue = 5.0)
+            graphtec_mph = tksd.askfloat('Input', 'Enter GRAPHTEC peak threshold', minvalue = 0.0001, maxvalue = 5.0)
             if graphtec_mph:
 
                 print()
                 print()
                 print('input VectorNav peak threshold')
                 #get the threshold
-                vn_mph = tksd.askfloat("Input", "Enter VectorNav peak threshold", minvalue = 0.0001, maxvalue = 50.0)
+                vn_mph = tksd.askfloat('Input', 'Enter VectorNav peak threshold', minvalue = 0.0001, maxvalue = 50.0)
                 if vn_mph:
                     peaks = detect_peaks(self.graphtec['CH8_diff'].values, mph=graphtec_mph)          
 
@@ -326,7 +350,7 @@ class StartPage(tk.Frame):
             print('VectorNav peak detected at: {}'.format(self.vn_clean['time'].iloc[peaks2[0]]))
             print()
 
-            dt_window = 5 # plot plus or minus seconds around found peak
+            dt_window = 10 # plot plus or minus seconds around found peak
             
             delta_time = self.graphtec['wrong_dt'].iloc[peaks[0]]-self.vn_clean['time'].iloc[peaks2[0]]
             print()
@@ -343,7 +367,14 @@ class StartPage(tk.Frame):
 
 
     def detectPeaks(self):
-        #start timestamp manipulation
+        '''Function that calls searchPeaks and if successful, 
+        stores values in the class' variables:
+        self.gr_peaks
+        self.vn_peaks
+        self.gr_data
+        self.vn_data
+        self.deltat
+        '''
 
         if not self.graphtecExists:
             self.popupmsg('Select Graphtec file first')
@@ -366,10 +397,10 @@ class StartPage(tk.Frame):
         elif not self.INSExists:
             self.popupmsg('Select INS file first')
         else:
-            self.delta_h = tksd.askinteger("askinteger", "Enter DELTA_H", minvalue = -23, maxvalue = 23)
-            self.delta_m = tksd.askinteger("askinteger", "Enter DELTA_M", minvalue = -59, maxvalue = 59)
-            self.delta_s = tksd.askinteger("askinteger", "Enter DELTA_S", minvalue = -59, maxvalue = 59)
-            self.delta_ms = tksd.askinteger("askinteger", "Enter DELTA_MilliS", minvalue = -1000, maxvalue = 1000)
+            self.delta_h = tksd.askinteger('askinteger', 'Enter DELTA_H', minvalue = -23, maxvalue = 23)
+            self.delta_m = tksd.askinteger('askinteger', 'Enter DELTA_M', minvalue = -59, maxvalue = 59)
+            self.delta_s = tksd.askinteger('askinteger', 'Enter DELTA_S', minvalue = -59, maxvalue = 59)
+            self.delta_ms = tksd.askinteger('askinteger', 'Enter DELTA_MilliS', minvalue = -1000, maxvalue = 1000)
 
 
             print('Deltas: {} hours, {} minutes, {} seconds and {} milliseconds'. format(self.delta_h, self.delta_m, self.delta_s, self.delta_ms))
@@ -377,7 +408,8 @@ class StartPage(tk.Frame):
 
 
     def saveValues(self):
-
+        '''Saves merged file to disk'''
+        
         print('Peaks', self.saveOKPeaks, ' Manual ', self.saveOKManual, ' or ', (self.saveOKPeaks == True or self.saveOKManual == True))
         if self.saveOKPeaks == True:
             print('Saving data using detected peaks for synchronism')
@@ -426,11 +458,13 @@ class StartPage(tk.Frame):
 
 
     def popupmsg(self, msg):
+        '''Generic popup messager'''
+        
         popup = tk.Tk()
-        popup.wm_title("!")
-        label = ttk.Label(popup, text=msg, font=("Helvetica", 10))
-        label.pack(side="top", fill="x", pady=10)
-        B1 = ttk.Button(popup, text="Okay", command = popup.destroy)
+        popup.wm_title('!')
+        label = ttk.Label(popup, text=msg, font=('Helvetica', 10))
+        label.pack(side='top', fill='x', pady=10)
+        B1 = ttk.Button(popup, text='Okay', command = popup.destroy)
         B1.pack()
         popup.mainloop()
  
