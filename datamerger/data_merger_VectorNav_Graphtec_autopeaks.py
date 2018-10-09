@@ -141,10 +141,10 @@ class StartPage(tk.Frame):
             self.toolbar.update()
             self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        self.a.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8'].values, 'o-')
-        self.b.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8_diff'].values, 'o-')
-        self.c.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z'].values, '.-')
-        self.d.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z_diff'].values, '.-')
+        self.a.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8'].values, '.-', linewidth=1.0)
+        self.b.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8_diff'].values, '.-', c='r', linewidth=1.0)
+        self.c.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z'].values, '.-', linewidth=1.0)
+        self.d.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z_diff'].values, '.-', c='r', linewidth=1.0)
         
         #self.a.plot(gr_plt_data.index.values, gr_plt_data['CH8'].values, 'o-')
         #self.b.plot(vn_plt_data.index.values, vn_plt_data['Acceleration.Z'].values, '.-')
