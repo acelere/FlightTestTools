@@ -119,13 +119,19 @@ class StartPage(tk.Frame):
         if self.figInit == True:
             self.a.clear()
             self.b.clear()
+            self.c.clear()
+            self.d.clear()
 
         else:
             self.f = Figure(figsize=(8,5), dpi=100)
-            self.a = self.f.add_subplot(211)
+            self.a = self.f.add_subplot(411)
             self.a.set_ylabel('Graphtec Event')
-            self.b = self.f.add_subplot(212)
-            self.b.set_ylabel('VN Z Accel')
+            self.b = self.f.add_subplot(412)
+            self.b.set_ylabel('Graphtec Event Der')
+            self.c = self.f.add_subplot(413)
+            self.c.set_ylabel('VN Z Accel')
+            self.d = self.f.add_subplot(414)
+            self.d.set_ylabel('VN Z Accel Der')
             self.figInit = True
             self.canvas = FigureCanvasTkAgg(self.f, self)
             self.canvas.draw()
@@ -136,7 +142,9 @@ class StartPage(tk.Frame):
             self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         self.a.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8'].values, 'o-')
-        self.b.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z'].values, '.-')
+        self.b.plot(gr_plt_data['wrong_dt'].values, gr_plt_data['CH8_diff'].values, 'o-')
+        self.c.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z'].values, '.-')
+        self.d.plot(vn_plt_data['time'].values, vn_plt_data['Acceleration.Z_diff'].values, '.-')
         
         #self.a.plot(gr_plt_data.index.values, gr_plt_data['CH8'].values, 'o-')
         #self.b.plot(vn_plt_data.index.values, vn_plt_data['Acceleration.Z'].values, '.-')
